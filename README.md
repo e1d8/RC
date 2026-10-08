@@ -1,24 +1,34 @@
 # Resultats de la competició Gaia Climb
 
-Landing estàtica en valencià que llig les participacions guardades pel formulari de Gaia Climb i mostra el rànquing i les estadístiques de la competició de socis d’octubre de 2026.
+Landing estàtica en valencià que mostra el rànquing i les estadístiques de les participacions guardades en Google Sheets pel formulari de Gaia Climb.
 
 ## Funcionament
 
-- La web consulta la taula pública `resultados` del mateix projecte de Supabase que el formulari.
-- Sols llig l’identificador públic, el nom, el gènere i les puntuacions. El correu no se sol·licita ni es mostra.
-- La consulta es fa una vegada en obrir la pàgina, en lots de 500 files.
-- El rànquing general inclou totes les participacions. Les categories Femení i Masculí utilitzen el valor exacte guardat en el camp `genero`.
-- Els empats compartixen una posició amb numeració densa: `1, 2, 2, 3`.
+- La web consulta la lectura pública de Google Apps Script; el full de càlcul continua sent privat.
+- La resposta conté l’identificador, el nom, el gènere, 17 blocs, el total i la data. No conté correus.
+- Cada bloc val `0`, `Zona` (10 punts) o `Top` (25 punts), amb un màxim de 425.
+- El rànquing general inclou totes les participacions. Les categories Femení i Masculí utilitzen el valor exacte de `genero`.
+- Els empats compartixen posició amb numeració densa: `1, 2, 2, 3`.
 - Les persones amb zero punts apareixen al rànquing i compten en el total i en la mitjana.
-- En el gràfic, una puntuació de 5 en un bloc o de 20 en una via és una zona sense top. Una puntuació de 15 en un bloc o de 50 en una via és un top.
+- El gràfic mostra les zones sense top i els tops en cinc pàgines de blocs: `4 + 4 + 4 + 4 + 1`.
 
 No hi ha dependències ni procés de compilació.
 
 ## Configuració
 
-La URL i la clau publicable de Supabase estan al principi de `script.js`. Són credencials públiques per a l’API del navegador; no s’ha d’utilitzar mai una clau secreta o `service_role`.
+Desplega primer `google-apps-script.gs` seguint el README del projecte `FormulariCompeGaia`. Després copia la mateixa URL pública acabada en `/exec` al principi de `script.js`:
 
-La base de dades ha de conservar els permisos de lectura pública definits en el projecte del formulari. Esta web no necessita migracions.
+```js
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/IDENTIFICADOR/exec';
+```
+
+Pots comprovar la resposta pública en el navegador:
+
+```text
+URL_DE_APPS_SCRIPT?action=resultats
+```
+
+El JSON ha de tindre `ok: true` i una propietat `resultats`. No ha d’incloure mai `correo`.
 
 ## Prova local
 
@@ -28,16 +38,14 @@ Des de la carpeta del projecte:
 python3 -m http.server 8000
 ```
 
-Obri `http://localhost:8000`. Per a provar estats concrets sense modificar Supabase, es pot substituir temporalment la resposta de `lligResultats` per un conjunt de dades local en les ferramentes de desenvolupament.
+Obri `http://localhost:8000` i comprova:
 
-Comprovacions principals:
-
-- Revisar la pàgina a 320 px, en un mòbil habitual i en escriptori.
-- Navegar per les pestanyes i les fletxes només amb el teclat.
-- Comprovar empats, noms llargs, puntuacions zero i més de cinc participants.
-- Validar el recompte de zones i tops en les tres pàgines del gràfic.
-- Simular una fallada de xarxa i comprovar el botó «Torna-ho a provar».
+- Càrrega correcta, estat sense resultats, error de xarxa i botó «Torna-ho a provar».
+- Rànquing general, Femení i Masculí; empats, noms llargs, zeros i més de cinc participants.
+- Mitjana i total de participants.
+- Recompte de zones i tops en les cinc pàgines del gràfic.
+- Navegació amb teclat i amplada mínima de 320 px.
 
 ## Publicació
 
-Es pot publicar directament amb GitHub Pages: en la configuració del repositori, selecciona **Pages → Deploy from a branch**, la branca corresponent i la carpeta **/(root)**. Els fitxers necessaris són `index.html`, `styles.css`, `script.js` i `Gaia.svg`, que s’utilitza també com a icona del navegador.
+Publica `index.html`, `styles.css`, `script.js` i `Gaia.svg` en GitHub Pages mitjançant **Settings → Pages → Deploy from a branch**. Després de cada canvi, espera que acabe el desplegament i recarrega sense memòria cau.

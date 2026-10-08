@@ -1,8 +1,6 @@
-// Estes credencials públiques són les mateixes que utilitza el formulari.
-const SUPABASE_URL = 'https://snxkaxlxypmqevfsksul.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_dbfGWZXvN3cVWrYNnIE2tg_D-x-siVb';
+// Copia ací la mateixa URL /exec de Google Apps Script que utilitza el formulari.
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_6xXSPIx5A1duDRSo-9iMPRQKQ3JSD5WjF5tFKZH_J6jxMwpqHGpRvrV-N4zFnCcw/exec';
 
-const FILES_PER_REQUEST = 500;
 const RESULTATS_PER_PAGINA = 5;
 const TEMPS_MAXIM_CARREGA = 20000;
 const DURACIO_RECOMPTE = 900;
@@ -10,33 +8,18 @@ const DURACIO_FILA_RANQUING = 320;
 const INTERVAL_FILA_RANQUING = 100;
 const LLAVOR_BLOBS = String(Date.now());
 const CATEGORIES = ['General', 'Femení', 'Masculí'];
-const CAMPS_PUBLICS = [
-  'id', 'nombre', 'genero',
-  'bloque1', 'bloque2', 'bloque3', 'bloque4', 'bloque5',
-  'bloque6', 'bloque7', 'bloque8', 'bloque9', 'bloque10',
-  'via1', 'via2', 'total'
-];
 
-const PROBLEMES = [
-  ...Array.from({ length: 10 }, (_, index) => ({
-    camp: `bloque${index + 1}`,
-    etiqueta: `Bloc ${index + 1}`,
-    zona: 5,
-    top: 15
-  })),
-  ...Array.from({ length: 2 }, (_, index) => ({
-    camp: `via${index + 1}`,
-    etiqueta: `Via ${index + 1}`,
-    zona: 20,
-    top: 50
-  }))
-];
+const PROBLEMES = Array.from({ length: 17 }, (_, index) => ({
+  camp: `bloque${index + 1}`,
+  etiqueta: `Bloc ${index + 1}`,
+  zona: 10,
+  top: 25
+}));
 
-const PAGINES_GRAFIC = [
-  PROBLEMES.slice(0, 4),
-  PROBLEMES.slice(4, 8),
-  PROBLEMES.slice(8, 12)
-];
+const PAGINES_GRAFIC = Array.from(
+  { length: Math.ceil(PROBLEMES.length / 4) },
+  (_, index) => PROBLEMES.slice(index * 4, index * 4 + 4)
+);
 
 const elements = {
   estatCarrega: document.getElementById('estat-carrega'),
@@ -93,50 +76,31 @@ function normalitzaResultat(fila) {
 }
 
 async function lligResultats() {
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error('Falta configurar la connexió amb Supabase.');
-  }
-
-  const files = [];
-  const headers = { apikey: SUPABASE_PUBLISHABLE_KEY };
-  if (SUPABASE_PUBLISHABLE_KEY.startsWith('eyJ')) {
-    headers.Authorization = `Bearer ${SUPABASE_PUBLISHABLE_KEY}`;
+  if (!GOOGLE_APPS_SCRIPT_URL || !GOOGLE_APPS_SCRIPT_URL.endsWith('/exec')) {
+    throw new Error('Falta configurar l’URL de Google Apps Script.');
   }
 
   const controller = new AbortController();
   const temporitzador = setTimeout(() => controller.abort(), TEMPS_MAXIM_CARREGA);
 
   try {
-    for (let offset = 0; ; offset += FILES_PER_REQUEST) {
-      const endpoint = new URL(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/resultados`);
-      endpoint.searchParams.set('select', CAMPS_PUBLICS.join(','));
-      endpoint.searchParams.set('order', 'id.asc');
-      endpoint.searchParams.set('limit', String(FILES_PER_REQUEST));
-      endpoint.searchParams.set('offset', String(offset));
-
-      const resposta = await fetch(endpoint, { headers, signal: controller.signal });
-      if (!resposta.ok) {
-        const detall = await resposta.json().catch(() => ({}));
-        console.error('Error de Supabase:', {
-          status: resposta.status,
-          code: detall.code,
-          message: detall.message
-        });
-        throw new Error(`Supabase ha respost amb l’estat ${resposta.status}.`);
-      }
-
-      const pagina = await resposta.json();
-      if (!Array.isArray(pagina)) {
-        throw new Error('Supabase ha retornat una resposta inesperada.');
-      }
-      files.push(...pagina);
-      if (pagina.length < FILES_PER_REQUEST) break;
+    const endpoint = new URL(GOOGLE_APPS_SCRIPT_URL);
+    endpoint.searchParams.set('action', 'resultats');
+    endpoint.searchParams.set('_', String(Date.now()));
+    const resposta = await fetch(endpoint, {
+      cache: 'no-store',
+      redirect: 'follow',
+      signal: controller.signal
+    });
+    if (!resposta.ok) throw new Error(`El servidor ha respost amb l’estat ${resposta.status}.`);
+    const dades = await resposta.json().catch(() => null);
+    if (!dades || dades.ok !== true || !Array.isArray(dades.resultats)) {
+      throw new Error(dades?.message || 'Google Apps Script ha retornat una resposta inesperada.');
     }
+    return dades.resultats.map(normalitzaResultat);
   } finally {
     clearTimeout(temporitzador);
   }
-
-  return files.map(normalitzaResultat);
 }
 
 function filtraCategoria(categoria) {
